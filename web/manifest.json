@@ -1,11 +1,11 @@
 {
-    "name": "konsi_app",
-    "short_name": "konsi_app",
+    "name": "Konsehal Management",
+    "short_name": "Konsehal",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1B5E20",
+    "theme_color": "#1B5E20",
+    "description": "Official Konsehal Management App.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
