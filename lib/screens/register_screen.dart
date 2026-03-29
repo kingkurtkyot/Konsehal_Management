@@ -90,7 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Create Access',
+                'Welcome, Konsehal!',
                 style: GoogleFonts.cinzel(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,

@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
                   Text(
-                    'Welcome, Konsehal.',
+                    'Welcome, Konsehal!',
                     style: GoogleFonts.cinzel(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,

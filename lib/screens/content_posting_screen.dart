@@ -810,50 +810,92 @@ Focus: The core message of the verse and its universal lesson.
       );
     } 
     else {
-      // THE "PREMIUM RESOLUTION"
-      return Container(
-        width: double.infinity,
-        color: const Color(0xFFFDFDFD),
-        child: Column(
-          children: [
-            ClipPath(
-              clipper: BottomTearClipper(),
-              child: Container(
-                height: isStory ? 280 : 180,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [const Color(0xFF051D0D), bgColor], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/seal.png', width: 80),
-                    const SizedBox(height: 12),
-                    Text('TRIVIA HUB', style: GoogleFonts.bebasNeue(fontSize: isStory ? 64 : 52, color: Colors.white, letterSpacing: 6)),
-                  ],
-                ),
-              ),
+      // THE "PREMIUM RESOLUTION" - REFOCUSED GREEN VERSION
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          double scale = constraints.maxWidth / 400; // Normalizing scale
+          return Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F8E9), // Lightest Mint Green instead of pure white
+              border: Border.all(color: bgColor.withValues(alpha: 0.1), width: 10 * scale),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 45, vertical: 40),
-                child: Column(
-                  children: [
-                    const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 40),
-                    const Spacer(),
-                    Text(_contentBody, textAlign: TextAlign.center, style: GoogleFonts.playfairDisplay(fontSize: isStory ? 21 : 17, height: 1.6, fontWeight: FontWeight.bold, color: Colors.black.withValues(alpha: 0.85))),
-                    const Spacer(),
-                    _buildSectionBoundary(title: "Tandaan natin", content: _reflection, color: bgColor),
-                    _buildSectionBoundary(title: "Anong masasabi niyo?", content: _question, color: Colors.deepPurple),
-                    const Spacer(),
-                    Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 3, color: bgColor)),
-                    _buildHashtagFooter(),
-                  ],
+            child: Column(
+              children: [
+                ClipPath(
+                  clipper: BottomTearClipper(),
+                  child: Container(
+                    height: isStory ? 320 * scale : 200 * scale,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [const Color(0xFF051D0D), bgColor], 
+                        begin: Alignment.topCenter, 
+                        end: Alignment.bottomCenter
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset('assets/seal.png', width: 90 * scale),
+                        SizedBox(height: 12 * scale),
+                        Text(
+                          'TRIVIA HUB', 
+                          style: GoogleFonts.bebasNeue(
+                            fontSize: isStory ? 74 * scale : 62 * scale, 
+                            color: Colors.white, 
+                            letterSpacing: 8 * scale
+                          )
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 35 * scale, vertical: 30 * scale),
+                    child: Column(
+                      children: [
+                        Icon(Icons.lightbulb_outline, color: Colors.amber, size: 45 * scale),
+                        const Spacer(),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SizedBox(
+                            width: constraints.maxWidth - (70 * scale),
+                            child: Text(
+                              _contentBody, 
+                              textAlign: TextAlign.center, 
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: isStory ? 24 : 20, // Let scale handled by FittedBox mostly
+                                height: 1.6, 
+                                fontWeight: FontWeight.bold, 
+                                color: bgColor.withValues(alpha: 0.9)
+                              )
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        _buildSectionBoundary(title: "Tandaan natin", content: _reflection, color: bgColor),
+                        _buildSectionBoundary(title: "Anong masasabi niyo?", content: _question, color: Colors.teal.shade900),
+                        const Spacer(),
+                        Text(
+                          'KONSI MATTHEW LAGAYA', 
+                          style: GoogleFonts.oswald(
+                            fontSize: 18 * scale, 
+                            fontWeight: FontWeight.bold, 
+                            letterSpacing: 4 * scale, 
+                            color: bgColor
+                          )
+                        ),
+                        _buildHashtagFooter(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        }
       );
     }
   }
@@ -866,49 +908,55 @@ Focus: The core message of the verse and its universal lesson.
     final isStory = _selectedSize == 'Story';
 
     if (_designVariant == 0) {
-      // THE "GOLDEN QUOTE"
-      return Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border.all(color: goldAccent.withValues(alpha: 0.3), width: 15),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.format_quote_rounded, color: goldAccent, size: isStory ? 80 : 60),
-            const SizedBox(height: 20),
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: 350,
-                  child: Text(
-                    '“$_contentBody”', 
-                    textAlign: TextAlign.center, 
-                    style: GoogleFonts.merriweather(
-                      fontSize: isStory ? 30 : 24, 
-                      color: Colors.white, 
-                      fontWeight: FontWeight.w900, 
-                      height: 1.5, 
-                      fontStyle: FontStyle.italic
-                    )
+      // THE "GOLDEN QUOTE" - GREEN DOMINANT GOLD ACCENT
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          double scale = constraints.maxWidth / 400;
+          return Container(
+            padding: EdgeInsets.all(35 * scale),
+            decoration: BoxDecoration(
+              color: bgColor,
+              border: Border.all(color: goldAccent.withValues(alpha: 0.4), width: 12 * scale),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.format_quote_rounded, color: goldAccent, size: isStory ? 80 * scale : 60 * scale),
+                SizedBox(height: 20 * scale),
+                Expanded(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SizedBox(
+                        width: 350,
+                        child: Text(
+                          '“$_contentBody”', 
+                          textAlign: TextAlign.center, 
+                          style: GoogleFonts.merriweather(
+                            fontSize: isStory ? 32 : 26, 
+                            color: Colors.white, 
+                            fontWeight: FontWeight.w900, 
+                            height: 1.5, 
+                            fontStyle: FontStyle.italic
+                          )
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(height: 20 * scale),
+                Container(height: 2 * scale, width: 80 * scale, color: goldAccent),
+                SizedBox(height: 20 * scale),
+                _buildSectionBoundary(title: "Leadership Lesson", content: _reflection, color: goldAccent, textColor: Colors.white70),
+                _buildSectionBoundary(title: "Community Mission", content: _question, color: Colors.lightGreen.shade200, textColor: Colors.white70),
+                const Spacer(),
+                Text('SATURDAY STRENGTH', style: GoogleFonts.montserrat(fontSize: 12 * scale, color: goldAccent, fontWeight: FontWeight.bold, letterSpacing: 6 * scale)),
+                SizedBox(height: 8 * scale),
+                Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 18 * scale, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2 * scale)),
+                _buildHashtagFooter(color: Colors.white38),
+              ],
             ),
-            const SizedBox(height: 20),
-            Container(height: 2, width: 100, color: goldAccent),
-            const SizedBox(height: 20),
-            _buildSectionBoundary(title: "Leadership Lesson", content: _reflection, color: goldAccent, textColor: Colors.white70),
-            _buildSectionBoundary(title: "Community Mission", content: _question, color: Colors.blue.shade300, textColor: Colors.white70),
-            const Spacer(),
-            Text('SATURDAY STRENGTH', style: GoogleFonts.montserrat(fontSize: 14, color: goldAccent, fontWeight: FontWeight.bold, letterSpacing: 8)),
-            const SizedBox(height: 8),
-            Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2)),
-            _buildHashtagFooter(color: Colors.white38),
-          ],
-        ),
+          );
+        }
       );
     } 
     else if (_designVariant == 1) {
@@ -965,35 +1013,75 @@ Focus: The core message of the verse and its universal lesson.
       );
     }
     else {
-      // THE "AUTHORITY OVERLAY"
-      return Container(
-        width: double.infinity,
-        decoration: BoxDecoration(gradient: LinearGradient(colors: [deepForest, bgColor], begin: Alignment.bottomLeft, end: Alignment.topRight)),
-        padding: EdgeInsets.all(isStory ? 50 : 40),
-        child: Column(
-          children: [
-            Align(alignment: Alignment.topRight, child: Image.asset('assets/seal.png', width: isStory ? 80 : 65, height: isStory ? 80 : 65, errorBuilder: (c, e, s) => const SizedBox())),
-            const Spacer(),
-            Container(
-              padding: EdgeInsets.all(isStory ? 45 : 35),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(isStory ? 30 : 20), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 30)]),
-              child: Column(
-                children: [
-                  Icon(Icons.format_quote_rounded, color: bgColor, size: isStory ? 60 : 40),
-                  const SizedBox(height: 15),
-                  Text('“$_contentBody”', textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: isStory ? 22 : 18, color: deepForest, fontWeight: FontWeight.w800, height: 1.5)),
-                ],
+      // THE "AUTHORITY OVERLAY" - GREEN DOMINANT
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          double scale = constraints.maxWidth / 400;
+          return Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [deepForest, bgColor], 
+                begin: Alignment.bottomLeft, 
+                end: Alignment.topRight
               ),
             ),
-            if (isStory) const Spacer(),
-            const SizedBox(height: 15),
-            _buildSectionBoundary(title: "Leadership Note", content: _reflection, color: Colors.white, textColor: Colors.white),
-            _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.amber, textColor: Colors.white),
-            const Spacer(),
-            Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 14, color: Colors.white54, letterSpacing: 4)),
-            _buildHashtagFooter(color: Colors.white38),
-          ],
-        ),
+            padding: EdgeInsets.all(isStory ? 50 * scale : 40 * scale),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topRight, 
+                  child: Image.asset('assets/seal.png', width: isStory ? 80 * scale : 65 * scale, height: isStory ? 80 * scale : 65 * scale, errorBuilder: (c, e, s) => const SizedBox())
+                ),
+                const Spacer(),
+                Container(
+                  padding: EdgeInsets.all(isStory ? 45 * scale : 35 * scale),
+                  decoration: BoxDecoration(
+                    color: Colors.white, 
+                    borderRadius: BorderRadius.circular(isStory ? 30 * scale : 20 * scale), 
+                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 30)]
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.format_quote_rounded, color: bgColor, size: isStory ? 60 * scale : 40 * scale),
+                      SizedBox(height: 15 * scale),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: SizedBox(
+                          width: 300,
+                          child: Text(
+                            '“$_contentBody”', 
+                            textAlign: TextAlign.center, 
+                            style: GoogleFonts.poppins(
+                              fontSize: isStory ? 24 : 18, 
+                              color: deepForest, 
+                              fontWeight: FontWeight.w800, 
+                              height: 1.5
+                            )
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isStory) const Spacer(),
+                SizedBox(height: 15 * scale),
+                _buildSectionBoundary(title: "Leadership Note", content: _reflection, color: Colors.white, textColor: Colors.white),
+                _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
+                const Spacer(),
+                Text(
+                  'KONSI MATTHEW LAGAYA', 
+                  style: GoogleFonts.oswald(
+                    fontSize: 14 * scale, 
+                    color: Colors.white54, 
+                    letterSpacing: 4 * scale
+                  )
+                ),
+                _buildHashtagFooter(color: Colors.white38),
+              ],
+            ),
+          );
+        }
       );
     }
   }
@@ -1005,47 +1093,81 @@ Focus: The core message of the verse and its universal lesson.
     final isStory = _selectedSize == 'Story';
 
     if (_designVariant == 0) {
-      // THE "SACRED HEADER"
-      return Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [const Color(0xFF2E7D32), const Color(0xFF0A2E16), bgColor]),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: isStory ? 120 : 100,
-              padding: const EdgeInsets.only(bottom: 20),
-              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(50), bottomRight: Radius.circular(50))),
-              child: Center(child: Image.asset('assets/seal.png', width: 60)),
+      // THE "SACRED HEADER" - GREEN PULSE
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          double scale = constraints.maxWidth / 400;
+          return Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter, 
+                end: Alignment.bottomCenter, 
+                colors: [const Color(0xFF2E7D32), const Color(0xFF0A2E16), bgColor]
+              ),
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 45),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.center,
-                  child: SizedBox(
-                    width: 400,
-                    child: Column(
-                      children: [
-                        Text(_bibleVerse, textAlign: TextAlign.center, style: GoogleFonts.playfairDisplay(fontSize: isStory ? 28 : 22, fontWeight: FontWeight.w900, color: const Color(0xFFFFD700), height: 1.5)),
-                        const SizedBox(height: 30),
-                        _buildSectionBoundary(title: "Reflection", content: _reflection, color: Colors.white, textColor: Colors.white),
-                        _buildSectionBoundary(title: "Community Prayer", content: _question, color: Colors.white, textColor: Colors.white),
-                      ],
+            child: Column(
+              children: [
+                Container(
+                  width: isStory ? 130 * scale : 110 * scale,
+                  padding: EdgeInsets.only(bottom: 25 * scale),
+                  decoration: BoxDecoration(
+                    color: Colors.white, 
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(50 * scale), 
+                      bottomRight: Radius.circular(50 * scale)
+                    )
+                  ),
+                  child: Center(child: Image.asset('assets/seal.png', width: 65 * scale)),
+                ),
+                SizedBox(height: 30 * scale),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 40 * scale),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: SizedBox(
+                          width: 400,
+                          child: Column(
+                            children: [
+                              Text(
+                                _bibleVerse, 
+                                textAlign: TextAlign.center, 
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: isStory ? 32 : 26, 
+                                  fontWeight: FontWeight.w900, 
+                                  color: const Color(0xFFFFD700), 
+                                  height: 1.5,
+                                  shadows: [BoxShadow(color: Colors.black45, blurRadius: 10)]
+                                )
+                              ),
+                              SizedBox(height: 35 * scale),
+                              _buildSectionBoundary(title: "Reflection", content: _reflection, color: Colors.white, textColor: Colors.white),
+                              _buildSectionBoundary(title: "Community Prayer", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                SizedBox(height: 25 * scale),
+                Text(
+                  'SUNDAY BLESSING', 
+                  style: GoogleFonts.oswald(
+                    fontSize: 14 * scale, 
+                    color: Colors.white70, 
+                    letterSpacing: 4 * scale, 
+                    fontWeight: FontWeight.bold
+                  )
+                ),
+                _buildHashtagFooter(color: Colors.white30),
+                SizedBox(height: 40 * scale),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text('SUNDAY BLESSING', style: GoogleFonts.oswald(fontSize: 14, color: Colors.white70, letterSpacing: 3, fontWeight: FontWeight.bold)),
-            _buildHashtagFooter(color: Colors.white30),
-            const SizedBox(height: 30),
-          ],
-        ),
+          );
+        }
       );
     } 
     else if (_designVariant == 1) {
@@ -1094,45 +1216,53 @@ Focus: The core message of the verse and its universal lesson.
       );
     }
     else {
-      // THE "DIVINE BOX"
-      return Container(
-        width: double.infinity,
-        color: bgColor,
-        padding: const EdgeInsets.all(30),
-        child: Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 3)),
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('assets/seal.png', width: 80),
-              const SizedBox(height: 20),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.center,
-                  child: SizedBox(
-                    width: 400,
-                    child: Text(
-                      _bibleVerse, 
-                      textAlign: TextAlign.center, 
-                      style: GoogleFonts.bebasNeue(
-                        fontSize: isStory ? 48 : 34, 
-                        color: const Color(0xFFFFD700), 
-                        letterSpacing: 4
-                      )
+      // THE "DIVINE BOX" - FULL GREEN SACRED
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          double scale = constraints.maxWidth / 400;
+          return Container(
+            width: double.infinity,
+            color: bgColor,
+            padding: EdgeInsets.all(30 * scale),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 4 * scale)
+              ),
+              padding: EdgeInsets.all(40 * scale),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset('assets/seal.png', width: 90 * scale),
+                  SizedBox(height: 25 * scale),
+                  Expanded(
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: SizedBox(
+                          width: 400,
+                          child: Text(
+                            _bibleVerse, 
+                            textAlign: TextAlign.center, 
+                            style: GoogleFonts.bebasNeue(
+                              fontSize: isStory ? 54 : 42, 
+                              color: const Color(0xFFFFD700), 
+                              letterSpacing: 4 * scale
+                            )
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  SizedBox(height: 20 * scale),
+                  _buildSectionBoundary(title: "Para sa ating Bayan", content: _reflection, color: Colors.white, textColor: Colors.white),
+                  _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.white, textColor: Colors.white),
+                  SizedBox(height: 15 * scale),
+                  _buildHashtagFooter(color: Colors.white30),
+                ],
               ),
-              const SizedBox(height: 20),
-              _buildSectionBoundary(title: "Para sa ating Bayan", content: _reflection, color: Colors.white, textColor: Colors.white),
-              _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.white, textColor: Colors.white),
-              const SizedBox(height: 15),
-              _buildHashtagFooter(color: Colors.white30),
-            ],
-          ),
-        ),
+            ),
+          );
+        }
       );
     }
   }
