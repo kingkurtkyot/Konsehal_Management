@@ -15,9 +15,6 @@ workflows:
     triggering:
       events:
         - push
-      branches:
-        - main
-        - master
     scripts:
       - name: Set up .env file
         script: |
@@ -31,9 +28,8 @@ workflows:
       - name: Build iOS IPA
         script: |
           # Build the iOS app package
-          flutter build ios --release --no-codesign
-          # Note: Final App Store distribution requires code signing certificates
-          # which can be added in the Codemagic UI "Distribution" section.
+          flutter build ipa --release
+          # Note: Codemagic will sign the .ipa if App Store Connect API keys are configured.
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
