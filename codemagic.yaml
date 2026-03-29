@@ -1,0 +1,46 @@
+# Codemagic CI/CD Configuration for Konsehal Management
+# This file automates the build of your iOS IPA without needing a local Mac.
+
+workflows:
+  ios-release:
+    name: iOS Release Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      groups:
+        - supabase_keys # You can define these in Codemagic UI later for extra security
+      vars:
+        XCODE_SCHEME: "Runner"
+    triggering:
+      events:
+        - push
+      branches:
+        - main
+        - master
+    scripts:
+      - name: Set up .env file
+        script: |
+          # Recreate the .env file for the cloud build
+          echo "GEMINI_API_KEY=$GEMINI_API_KEY" > .env
+          echo "SUPABASE_URL=$SUPABASE_URL" >> .env
+          echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      - name: Get Flutter dependencies
+        script: |
+          flutter packages pub get
+      - name: Build iOS IPA
+        script: |
+          # Build the iOS app package
+          flutter build ios --release --no-codesign
+          # Note: Final App Store distribution requires code signing certificates
+          # which can be added in the Codemagic UI "Distribution" section.
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - kingkurtu@gmail.com
+        notify:
+          success: true
+          failure: true

@@ -6,13 +6,10 @@ class SupabaseService {
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
-  static const String _url = 'https://rgduddzzytnnjvzzxyrs.supabase.co';
-  static const String _anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnZHVkZHp6eXRubmp2enp4eXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NzE4MzUsImV4cCI6MjA5MDM0NzgzNX0.8gKBtus7pArFyIO8aAtTTRrPBWLNZU2gG_GF9DQCN8w';
-
   Future<void> initialize() async {
     await Supabase.initialize(
-      url: _url,
-      anonKey: _anonKey,
+      url: dotenv.get('SUPABASE_URL'),
+      anonKey: dotenv.get('SUPABASE_ANON_KEY'),
     );
   }
 
