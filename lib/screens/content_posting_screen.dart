@@ -714,13 +714,12 @@ Focus: The core message of the verse and its universal lesson.
                       Divider(color: bgColor.withValues(alpha: 0.2), thickness: 2),
                       const SizedBox(height: 10),
                       Expanded(
-                        child: Center(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.topCenter,
-                            child: SizedBox(
-                              width: 400, // Normalized width for scaling
-                              child: Text(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
                                 _contentBody, 
                                 style: GoogleFonts.libreBaskerville(
                                   fontSize: isStory ? 24 : 20, 
@@ -728,15 +727,14 @@ Focus: The core message of the verse and its universal lesson.
                                   height: 1.6, 
                                   fontWeight: FontWeight.w600
                                 ),
-                                textAlign: TextAlign.start,
                               ),
-                            ),
+                              const SizedBox(height: 20),
+                              _buildSectionBoundary(title: "The Reflection", content: _reflection, color: bgColor),
+                              _buildSectionBoundary(title: "Thinking Point", content: _question, color: Colors.orange.shade900),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      _buildSectionBoundary(title: "The Reflection", content: _reflection, color: bgColor),
-                      _buildSectionBoundary(title: "Thinking Point", content: _question, color: Colors.orange.shade900),
                       const SizedBox(height: 15),
                       Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 14, fontWeight: FontWeight.bold, color: bgColor, letterSpacing: 4)),
                       _buildHashtagFooter(),
@@ -771,26 +769,27 @@ Focus: The core message of the verse and its universal lesson.
                       Text('KAALAMAN MULA KAY KONSI', style: GoogleFonts.montserrat(fontSize: isStory ? 38 : 28, fontWeight: FontWeight.w900, color: bgColor, height: 1.1)),
                       const SizedBox(height: 20),
                       Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: SizedBox(
-                            width: 350,
-                            child: Text(
-                              _contentBody, 
-                              style: GoogleFonts.poppins(
-                                fontSize: isStory ? 22 : 18, 
-                                color: Colors.black87, 
-                                height: 1.6, 
-                                fontWeight: FontWeight.w500
-                              )
-                            ),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _contentBody, 
+                                style: GoogleFonts.poppins(
+                                  fontSize: isStory ? 22 : 18, 
+                                  color: Colors.black87, 
+                                  height: 1.6, 
+                                  fontWeight: FontWeight.w500
+                                )
+                              ),
+                              const SizedBox(height: 20),
+                              _buildSectionBoundary(title: "Ang Aking Nilay", content: _reflection, color: bgColor),
+                              _buildSectionBoundary(title: "Kayo naman sa comments!", content: _question, color: const Color(0xFF1565C0)),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildSectionBoundary(title: "Ang Aking Nilay", content: _reflection, color: bgColor),
-                      _buildSectionBoundary(title: "Kayo naman sa comments!", content: _question, color: const Color(0xFF1565C0)),
                       const Spacer(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -858,25 +857,28 @@ Focus: The core message of the verse and its universal lesson.
                       children: [
                         Icon(Icons.lightbulb_outline, color: Colors.amber, size: 45 * scale),
                         const Spacer(),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: SizedBox(
-                            width: constraints.maxWidth - (70 * scale),
-                            child: Text(
-                              _contentBody, 
-                              textAlign: TextAlign.center, 
-                              style: GoogleFonts.playfairDisplay(
-                                fontSize: isStory ? 24 : 20, // Let scale handled by FittedBox mostly
-                                height: 1.6, 
-                                fontWeight: FontWeight.bold, 
-                                color: bgColor.withValues(alpha: 0.9)
-                              )
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              children: [
+                                Text(
+                                  _contentBody, 
+                                  textAlign: TextAlign.center, 
+                                  style: GoogleFonts.playfairDisplay(
+                                    fontSize: isStory ? 24 : 20, 
+                                    height: 1.6, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: bgColor.withValues(alpha: 0.9)
+                                  )
+                                ),
+                                const SizedBox(height: 20),
+                                _buildSectionBoundary(title: "Tandaan natin", content: _reflection, color: bgColor),
+                                _buildSectionBoundary(title: "Anong masasabi niyo?", content: _question, color: Colors.teal.shade900),
+                              ],
                             ),
                           ),
                         ),
-                        const Spacer(),
-                        _buildSectionBoundary(title: "Tandaan natin", content: _reflection, color: bgColor),
-                        _buildSectionBoundary(title: "Anong masasabi niyo?", content: _question, color: Colors.teal.shade900),
                         const Spacer(),
                         Text(
                           'KONSI MATTHEW LAGAYA', 
@@ -924,30 +926,29 @@ Focus: The core message of the verse and its universal lesson.
                 SizedBox(height: 20 * scale),
                 Expanded(
                   child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: SizedBox(
-                        width: 350,
-                        child: Text(
-                          '“$_contentBody”', 
-                          textAlign: TextAlign.center, 
-                          style: GoogleFonts.merriweather(
-                            fontSize: isStory ? 32 : 26, 
-                            color: Colors.white, 
-                            fontWeight: FontWeight.w900, 
-                            height: 1.5, 
-                            fontStyle: FontStyle.italic
-                          )
-                        ),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        children: [
+                          Text(
+                            '“$_contentBody”', 
+                            textAlign: TextAlign.center, 
+                            style: GoogleFonts.merriweather(
+                              fontSize: isStory ? 32 : 26, 
+                              color: Colors.white, 
+                              fontWeight: FontWeight.w900, 
+                              height: 1.5, 
+                              fontStyle: FontStyle.italic
+                            )
+                          ),
+                          SizedBox(height: 30 * scale),
+                          _buildSectionBoundary(title: "Leadership Lesson", content: _reflection, color: goldAccent, textColor: Colors.white70),
+                          _buildSectionBoundary(title: "Community Mission", content: _question, color: Colors.lightGreen.shade200, textColor: Colors.white70),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: 20 * scale),
-                Container(height: 2 * scale, width: 80 * scale, color: goldAccent),
-                SizedBox(height: 20 * scale),
-                _buildSectionBoundary(title: "Leadership Lesson", content: _reflection, color: goldAccent, textColor: Colors.white70),
-                _buildSectionBoundary(title: "Community Mission", content: _question, color: Colors.lightGreen.shade200, textColor: Colors.white70),
                 const Spacer(),
                 Text('SATURDAY STRENGTH', style: GoogleFonts.montserrat(fontSize: 12 * scale, color: goldAccent, fontWeight: FontWeight.bold, letterSpacing: 6 * scale)),
                 SizedBox(height: 8 * scale),
@@ -982,26 +983,27 @@ Focus: The core message of the verse and its universal lesson.
                     ),
                     const SizedBox(height: 20),
                     Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox(
-                          width: 350,
-                          child: Text(
-                            '“$_contentBody”', 
-                            style: GoogleFonts.libreBaskerville(
-                              fontSize: isStory ? 26 : 21, 
-                              color: deepForest, 
-                              height: 1.6, 
-                              fontWeight: FontWeight.bold
-                            )
-                          ),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '“$_contentBody”', 
+                              style: GoogleFonts.libreBaskerville(
+                                fontSize: isStory ? 26 : 21, 
+                                color: deepForest, 
+                                height: 1.6, 
+                                fontWeight: FontWeight.bold
+                              )
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSectionBoundary(title: "KONSI'S VISION", content: _reflection, color: bgColor),
+                            _buildSectionBoundary(title: "COMMUNITY PULSE", content: _question, color: Colors.blueGrey),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _buildSectionBoundary(title: "KONSI'S VISION", content: _reflection, color: bgColor),
-                    _buildSectionBoundary(title: "COMMUNITY PULSE", content: _question, color: Colors.blueGrey),
                     const SizedBox(height: 15),
                     _buildHashtagFooter(),
                   ],
@@ -1045,29 +1047,31 @@ Focus: The core message of the verse and its universal lesson.
                     children: [
                       Icon(Icons.format_quote_rounded, color: bgColor, size: isStory ? 60 * scale : 40 * scale),
                       SizedBox(height: 15 * scale),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: SizedBox(
-                          width: 300,
-                          child: Text(
-                            '“$_contentBody”', 
-                            textAlign: TextAlign.center, 
-                            style: GoogleFonts.poppins(
-                              fontSize: isStory ? 24 : 18, 
-                              color: deepForest, 
-                              fontWeight: FontWeight.w800, 
-                              height: 1.5
-                            )
-                          ),
-                        ),
+                      Text(
+                        '“$_contentBody”', 
+                        textAlign: TextAlign.center, 
+                        style: GoogleFonts.poppins(
+                          fontSize: isStory ? 24 : 18, 
+                          color: deepForest, 
+                          fontWeight: FontWeight.w800, 
+                          height: 1.5
+                        )
                       ),
                     ],
                   ),
                 ),
-                if (isStory) const Spacer(),
-                SizedBox(height: 15 * scale),
-                _buildSectionBoundary(title: "Leadership Note", content: _reflection, color: Colors.white, textColor: Colors.white),
-                _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: 15 * scale),
+                        _buildSectionBoundary(title: "Leadership Note", content: _reflection, color: Colors.white, textColor: Colors.white),
+                        _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
+                      ],
+                    ),
+                  ),
+                ),
                 const Spacer(),
                 Text(
                   'KONSI MATTHEW LAGAYA', 
@@ -1125,28 +1129,25 @@ Focus: The core message of the verse and its universal lesson.
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 40 * scale),
                     child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: SizedBox(
-                          width: 400,
-                          child: Column(
-                            children: [
-                              Text(
-                                _bibleVerse, 
-                                textAlign: TextAlign.center, 
-                                style: GoogleFonts.playfairDisplay(
-                                  fontSize: isStory ? 32 : 26, 
-                                  fontWeight: FontWeight.w900, 
-                                  color: const Color(0xFFFFD700), 
-                                  height: 1.5,
-                                  shadows: [BoxShadow(color: Colors.black45, blurRadius: 10)]
-                                )
-                              ),
-                              SizedBox(height: 35 * scale),
-                              _buildSectionBoundary(title: "Reflection", content: _reflection, color: Colors.white, textColor: Colors.white),
-                              _buildSectionBoundary(title: "Community Prayer", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
-                            ],
-                          ),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: [
+                            Text(
+                              _bibleVerse, 
+                              textAlign: TextAlign.center, 
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: isStory ? 32 : 26, 
+                                fontWeight: FontWeight.w900, 
+                                color: const Color(0xFFFFD700), 
+                                height: 1.5,
+                                shadows: [const BoxShadow(color: Colors.black45, blurRadius: 10)]
+                              )
+                            ),
+                            SizedBox(height: 35 * scale),
+                            _buildSectionBoundary(title: "Reflection", content: _reflection, color: Colors.white, textColor: Colors.white),
+                            _buildSectionBoundary(title: "Community Prayer", content: _question, color: Colors.lightGreenAccent, textColor: Colors.white),
+                          ],
                         ),
                       ),
                     ),
@@ -1187,27 +1188,27 @@ Focus: The core message of the verse and its universal lesson.
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: 380,
-                  child: Text(
-                    _bibleVerse, 
-                    textAlign: TextAlign.center, 
-                    style: GoogleFonts.cinzel(
-                      fontSize: isStory ? 26 : 20, 
-                      fontWeight: FontWeight.w900, 
-                      color: bgColor, 
-                      height: 1.6
-                    )
-                  ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    Text(
+                      _bibleVerse, 
+                      textAlign: TextAlign.center, 
+                      style: GoogleFonts.cinzel(
+                        fontSize: isStory ? 26 : 20, 
+                        fontWeight: FontWeight.w900, 
+                        color: bgColor, 
+                        height: 1.6
+                      )
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionBoundary(title: "Konsi's Reflection", content: _reflection, color: bgColor),
+                    _buildSectionBoundary(title: "Pagnilayan natin", content: _question, color: Colors.blueGrey),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            _buildSectionBoundary(title: "Konsi's Reflection", content: _reflection, color: bgColor),
-            _buildSectionBoundary(title: "Pagnilayan natin", content: _question, color: Colors.blueGrey),
             const Spacer(),
             Text('KONSI MATTHEW LAGAYA', style: GoogleFonts.oswald(fontSize: 14, color: Colors.grey, letterSpacing: 4)),
             _buildHashtagFooter(),
@@ -1236,26 +1237,27 @@ Focus: The core message of the verse and its universal lesson.
                   SizedBox(height: 25 * scale),
                   Expanded(
                     child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: SizedBox(
-                          width: 400,
-                          child: Text(
-                            _bibleVerse, 
-                            textAlign: TextAlign.center, 
-                            style: GoogleFonts.bebasNeue(
-                              fontSize: isStory ? 54 : 42, 
-                              color: const Color(0xFFFFD700), 
-                              letterSpacing: 4 * scale
-                            )
-                          ),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: [
+                            Text(
+                              _bibleVerse, 
+                              textAlign: TextAlign.center, 
+                              style: GoogleFonts.bebasNeue(
+                                fontSize: isStory ? 54 : 42, 
+                                color: const Color(0xFFFFD700), 
+                                letterSpacing: 4 * scale
+                              )
+                            ),
+                            SizedBox(height: 20 * scale),
+                            _buildSectionBoundary(title: "Para sa ating Bayan", content: _reflection, color: Colors.white, textColor: Colors.white),
+                            _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.white, textColor: Colors.white),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(height: 20 * scale),
-                  _buildSectionBoundary(title: "Para sa ating Bayan", content: _reflection, color: Colors.white, textColor: Colors.white),
-                  _buildSectionBoundary(title: "Share your thoughts", content: _question, color: Colors.white, textColor: Colors.white),
                   SizedBox(height: 15 * scale),
                   _buildHashtagFooter(color: Colors.white30),
                 ],
@@ -1300,8 +1302,6 @@ Focus: The core message of the verse and its universal lesson.
               height: 1.5,
               fontWeight: FontWeight.w600,
             ),
-            maxLines: isStory ? 4 : 3,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
