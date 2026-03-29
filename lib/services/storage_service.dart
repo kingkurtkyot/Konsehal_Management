@@ -132,6 +132,13 @@ class StorageService {
     await _saveLocalSolicitations(items);
   }
 
+  static Future<void> deleteSolicitations(List<String> ids) async {
+    await _supabase.from('solicitations').delete().filter('id', 'in', ids);
+    final items = await _loadLocalSolicitations();
+    items.removeWhere((s) => ids.contains(s.id));
+    await _saveLocalSolicitations(items);
+  }
+
   // ── Scheduled Content Posts ──────────────────────────────────────────────────
 
   static Future<List<ScheduledPost>> loadScheduledPosts() async {
@@ -219,5 +226,16 @@ class StorageService {
     paths.remove(path);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_galleryKey, jsonEncode(paths));
+  }
+
+  // --- Gemini Fallback Pointers ---
+  static Future<int> getLastFallbackIndex(String category) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('fallback_$category') ?? -1;
+  }
+
+  static Future<void> setLastFallbackIndex(String category, int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('fallback_$category', index);
   }
 }

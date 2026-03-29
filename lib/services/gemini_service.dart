@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show InternetAddress, SocketException;
+import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/schedule_event.dart';
@@ -13,7 +14,7 @@ class GeminiService {
 
 
   /// Extracts schedule events from an image
-  static Future<List<ScheduleEvent>> extractScheduleFromImage(File imageFile) async {
+  static Future<List<ScheduleEvent>> extractScheduleFromImage(XFile imageFile) async {
     const prompt = '''
 You are an expert at extracting structured schedule/event data from images.
 
@@ -60,7 +61,7 @@ Respond ONLY with a valid JSON array. If no events are found, return an empty ar
   }
 
   /// Extracts solicitations from an image
-  static Future<List<Solicitation>> extractSolicitationsFromImage(File imageFile) async {
+  static Future<List<Solicitation>> extractSolicitationsFromImage(XFile imageFile) async {
     const prompt = '''
 You are an expert at extracting structured solicitation/request data from images.
 
@@ -112,11 +113,14 @@ Respond ONLY with a valid JSON array. If no solicitations are found, return: []
 
   /// Check if device has internet connectivity
   static Future<bool> hasInternetConnection() async {
+    if (kIsWeb) return true; // Most web browsers already handle basic connectivity or fail gracefully
     try {
       final result = await InternetAddress.lookup('google.com');
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } on SocketException catch (_) {
       return false;
+    } catch (_) {
+      return true; // Fallback for other platforms
     }
   }
 
@@ -131,7 +135,7 @@ Respond ONLY with a valid JSON array. If no solicitations are found, return: []
   }
 
   /// Call API with image
-  static Future<String> _callAPI(String prompt, File imageFile) async {
+  static Future<String> _callAPI(String prompt, XFile imageFile) async {
     try {
       final hasInternet = await hasInternetConnection();
       if (!hasInternet) {

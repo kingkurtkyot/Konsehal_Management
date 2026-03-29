@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -250,8 +251,8 @@ class _SolicitationScreenState extends State<SolicitationScreen>
     try {
       List<Solicitation> allNewItems = [];
       for (final pickedFile in pickedFiles) {
-        final imageFile = File(pickedFile.path);
-        final newItems = await GeminiService.extractSolicitationsFromImage(imageFile);
+        // AI scanning works via XFile in GeminiService now
+        final newItems = await GeminiService.extractSolicitationsFromImage(pickedFile);
         allNewItems.addAll(newItems);
       }
 
@@ -571,6 +572,11 @@ class _SolicitationScreenState extends State<SolicitationScreen>
       final bytes = await _renderSolicitationToImage(solicitation);
       if (bytes == null) {
         _showSnackbar('Error capturing image', isError: true);
+        return;
+      }
+
+      if (kIsWeb) {
+        _showSnackbar('Exporting as image is coming soon to Web!', isError: true);
         return;
       }
 

@@ -2,7 +2,7 @@
 // Handles: schedule event reminders + solicitation deadline alerts
 
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -20,6 +20,10 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
+    if (kIsWeb) {
+      _initialized = true;
+      return;
+    }
     tz.initializeTimeZones();
 
     // Set Philippine timezone (Asia/Manila)
@@ -49,6 +53,8 @@ class NotificationService {
 
   /// Request all notification-related permissions
   static Future<void> requestPermissions() async {
+    if (kIsWeb) return;
+    
     // Request notification permission (Android 13+)
     final notifPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -300,6 +306,7 @@ class NotificationService {
     required Importance importance,
     required Priority priority,
   }) async {
+    if (kIsWeb) return;
     try {
       await _plugin.zonedSchedule(
         id,

@@ -23,7 +23,7 @@ subprojects {
         extensions.findByType<BaseExtension>()?.apply {
             compileSdkVersion(36)        // ← ADD THIS LINE
             defaultConfig {
-                minSdk = 23            // ← ADD THIS LINE
+                minSdk = 24            // ← UPDATED
             }
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17

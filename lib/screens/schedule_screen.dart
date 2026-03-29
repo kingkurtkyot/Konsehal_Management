@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -296,8 +297,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     try {
       List<ScheduleEvent> allNewEvents = [];
       for (final pickedFile in pickedFiles) {
-        final imageFile = File(pickedFile.path);
-        final newEvents = await GeminiService.extractScheduleFromImage(imageFile);
+        // AI scanning works via XFile in GeminiService now
+        final newEvents = await GeminiService.extractScheduleFromImage(pickedFile);
         allNewEvents.addAll(newEvents);
       }
 
@@ -559,6 +560,11 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       final bytes = await _renderEventToImage(event);
       if (bytes == null) {
         _showSnackbar('Error capturing image', isError: true);
+        return;
+      }
+
+      if (kIsWeb) {
+        _showSnackbar('Exporting as image is coming soon to Web!', isError: true);
         return;
       }
 
