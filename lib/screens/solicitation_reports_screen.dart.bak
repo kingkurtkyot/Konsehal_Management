@@ -1,0 +1,680 @@
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../models/solicitation.dart';
+import '../services/storage_service.dart';
+
+class SolicitationReportsScreen extends StatefulWidget {
+  const SolicitationReportsScreen({super.key});
+
+  @override
+  State<SolicitationReportsScreen> createState() => _SolicitationReportsScreenState();
+}
+
+class _SolicitationReportsScreenState extends State<SolicitationReportsScreen>
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  List<Solicitation> _allSolicitations = [];
+  bool _isLoading = true;
+  late TabController _tabController;
+  String _timeRange = 'All';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    final items = await StorageService.loadSolicitations();
+    if (!mounted) return;
+    setState(() {
+      _allSolicitations = items;
+      _isLoading = false;
+    });
+  }
+
+  // --- COMPUTED DATA ---
+
+  int get _totalCount => _allSolicitations.length;
+  int get _pendingCount => _allSolicitations.where((s) => s.status == SolicitationStatus.pending).length;
+  int get _completedCount => _allSolicitations.where((s) => s.status == SolicitationStatus.completed).length;
+
+  List<Solicitation> get _filteredSolicitations {
+    if (_timeRange == 'All') return _allSolicitations;
+    
+    final now = DateTime.now();
+    DateTime startDate;
+
+    switch (_timeRange) {
+      case 'This Week':
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        break;
+      case 'This Month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'This Year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      default:
+        return _allSolicitations;
+    }
+
+    return _allSolicitations.where((s) {
+      final date = s.parsedTargetDate;
+      if (date == null) return true;
+      return !date.isBefore(startDate);
+    }).toList();
+  }
+
+  Map<String, Map<String, int>> get _monthlyBreakdown {
+    final result = <String, Map<String, int>>{};
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    for (final s in _filteredSolicitations) {
+      final date = s.parsedTargetDate;
+      if (date == null) continue;
+      final key = '${months[date.month - 1]} ${date.year}';
+      result.putIfAbsent(key, () => {'pending': 0, 'completed': 0});
+      if (s.status == SolicitationStatus.pending) {
+        result[key]!['pending'] = (result[key]!['pending'] ?? 0) + 1;
+      } else {
+        result[key]!['completed'] = (result[key]!['completed'] ?? 0) + 1;
+      }
+    }
+    return result;
+  }
+
+  Map<String, Map<String, int>> get _weeklyBreakdown {
+    final result = <String, Map<String, int>>{};
+    
+    for (final s in _allSolicitations) {
+      final date = s.parsedTargetDate;
+      if (date == null) continue;
+      
+      // Get week number
+      final weekStart = date.subtract(Duration(days: date.weekday - 1));
+      final key = '${weekStart.month}/${weekStart.day}';
+      result.putIfAbsent(key, () => {'pending': 0, 'completed': 0});
+      if (s.status == SolicitationStatus.pending) {
+        result[key]!['pending'] = (result[key]!['pending'] ?? 0) + 1;
+      } else {
+        result[key]!['completed'] = (result[key]!['completed'] ?? 0) + 1;
+      }
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
+      appBar: AppBar(
+        title: const Text('Reports & Analytics'),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
+          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Overview'),
+            Tab(text: 'Charts'),
+            Tab(text: 'Archive'),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOverviewTab(),
+                _buildChartsTab(),
+                _buildArchiveTab(),
+              ],
+            ),
+    );
+  }
+
+  // ── OVERVIEW TAB ──
+
+  Widget _buildOverviewTab() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary Cards
+            Row(
+              children: [
+                Expanded(child: _summaryCard('Total', _totalCount, const Color(0xFF1B5E20), Icons.list_alt)),
+                const SizedBox(width: 12),
+                Expanded(child: _summaryCard('Pending', _pendingCount, Colors.orange.shade700, Icons.pending_actions)),
+                const SizedBox(width: 12),
+                Expanded(child: _summaryCard('Done', _completedCount, Colors.green.shade700, Icons.check_circle)),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Completion Rate
+            if (_totalCount > 0) ...[
+              Text('Completion Rate', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1B5E20))),
+              const SizedBox(height: 12),
+              _completionRateCard(),
+              const SizedBox(height: 24),
+            ],
+
+            // Pie Chart
+            if (_totalCount > 0) ...[
+              Text('Status Distribution', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1B5E20))),
+              const SizedBox(height: 12),
+              _statusPieChart(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryCard(String label, int count, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            '$count',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 28, color: color),
+          ),
+          Text(label, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _completionRateCard() {
+    final rate = _totalCount > 0 ? (_completedCount / _totalCount * 100) : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${rate.toStringAsFixed(1)}%', style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w900, fontSize: 36,
+                      color: rate >= 70 ? Colors.green.shade700 : rate >= 40 ? Colors.orange.shade700 : Colors.red.shade700,
+                    )),
+                    Text('completion rate', style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: rate / 100,
+                      strokeWidth: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation(
+                        rate >= 70 ? Colors.green.shade700 : rate >= 40 ? Colors.orange.shade700 : Colors.red.shade700,
+                      ),
+                    ),
+                    Icon(
+                      rate >= 70 ? Icons.thumb_up : rate >= 40 ? Icons.warning : Icons.priority_high,
+                      color: rate >= 70 ? Colors.green.shade700 : rate >= 40 ? Colors.orange.shade700 : Colors.red.shade700,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: rate / 100,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation(
+              rate >= 70 ? Colors.green.shade700 : rate >= 40 ? Colors.orange.shade700 : Colors.red.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusPieChart() {
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 3,
+                centerSpaceRadius: 35,
+                sections: [
+                  PieChartSectionData(
+                    value: _pendingCount.toDouble(),
+                    color: Colors.orange.shade600,
+                    title: '$_pendingCount',
+                    titleStyle: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white),
+                    radius: 50,
+                  ),
+                  PieChartSectionData(
+                    value: _completedCount.toDouble(),
+                    color: Colors.green.shade600,
+                    title: '$_completedCount',
+                    titleStyle: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white),
+                    radius: 50,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _legendItem(Colors.orange.shade600, 'Pending', _pendingCount),
+              const SizedBox(height: 12),
+              _legendItem(Colors.green.shade600, 'Completed', _completedCount),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendItem(Color color, String label, int count) {
+    return Row(
+      children: [
+        Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+        const SizedBox(width: 8),
+        Text('$label ($count)', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+  // ── CHARTS TAB ──
+
+  Widget _buildChartsTab() {
+    final monthly = _monthlyBreakdown;
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Time range filter
+          _buildTimeFilter(),
+          const SizedBox(height: 20),
+
+          Text('Monthly Breakdown', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1B5E20))),
+          const SizedBox(height: 12),
+
+          if (monthly.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(40),
+              alignment: Alignment.center,
+              child: Text('No data available for this period', style: GoogleFonts.poppins(color: Colors.grey)),
+            )
+          else
+            Container(
+              height: 260,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: _buildBarChart(monthly),
+            ),
+
+          const SizedBox(height: 24),
+
+          // Weekly breakdown
+          if (_weeklyBreakdown.isNotEmpty) ...[
+            Text('Weekly Breakdown', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1B5E20))),
+            const SizedBox(height: 12),
+            Container(
+              height: 260,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: _buildBarChart(_weeklyBreakdown),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // Detailed list per month
+          Text('Detailed per Month', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1B5E20))),
+          const SizedBox(height: 12),
+
+          ...monthly.entries.map((entry) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4),
+              ],
+            ),
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.key, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14)),
+                    Text('Total: ${(entry.value['pending'] ?? 0) + (entry.value['completed'] ?? 0)}',
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
+                const Spacer(),
+                _miniStatChip('Pending', entry.value['pending'] ?? 0, Colors.orange.shade600),
+                const SizedBox(width: 8),
+                _miniStatChip('Done', entry.value['completed'] ?? 0, Colors.green.shade600),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStatChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text('$label: $count', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+    );
+  }
+
+  Widget _buildBarChart(Map<String, Map<String, int>> data) {
+    final entries = data.entries.toList();
+    if (entries.isEmpty) return const SizedBox();
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: entries.fold<double>(0, (max, e) {
+          final total = ((e.value['pending'] ?? 0) + (e.value['completed'] ?? 0)).toDouble();
+          return total > max ? total : max;
+        }) + 2,
+        barGroups: entries.asMap().entries.map((mapEntry) {
+          final i = mapEntry.key;
+          final e = mapEntry.value;
+          return BarChartGroupData(
+            x: i,
+            barRods: [
+              BarChartRodData(
+                toY: (e.value['pending'] ?? 0).toDouble(),
+                color: Colors.orange.shade600,
+                width: 12,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
+              ),
+              BarChartRodData(
+                toY: (e.value['completed'] ?? 0).toDouble(),
+                color: Colors.green.shade600,
+                width: 12,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
+              ),
+            ],
+          );
+        }).toList(),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= 0 && value.toInt() < entries.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      entries[value.toInt()].key,
+                      style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w500),
+                    ),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              getTitlesWidget: (value, meta) => Text(
+                '${value.toInt()}',
+                style: GoogleFonts.poppins(fontSize: 10),
+              ),
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 1,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: Colors.grey.shade200,
+            strokeWidth: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeFilter() {
+    const filters = ['All', 'This Week', 'This Month', 'This Year'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = _timeRange == f;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(f),
+              selected: isSelected,
+              onSelected: (_) => setState(() => _timeRange = f),
+              selectedColor: const Color(0xFF1B5E20),
+              labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade700, fontWeight: FontWeight.w600),
+              backgroundColor: Colors.white,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── ARCHIVE TAB ──
+
+  Widget _buildArchiveTab() {
+    final pending = _allSolicitations.where((s) => s.status == SolicitationStatus.pending).toList();
+    final completed = _allSolicitations.where((s) => s.status == SolicitationStatus.completed).toList();
+
+    // Sort
+    pending.sort((a, b) {
+      final da = a.parsedTargetDate;
+      final db = b.parsedTargetDate;
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da.compareTo(db);
+    });
+    completed.sort((a, b) {
+      final da = a.parsedTargetDate;
+      final db = b.parsedTargetDate;
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Pending Archive
+            Text('📋 Pending Archive (${pending.length})', style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700, fontSize: 16, color: Colors.orange.shade700)),
+            const SizedBox(height: 8),
+            if (pending.isEmpty)
+              _emptyArchiveRow('No pending solicitations')
+            else
+              ...pending.map((s) => _archiveItem(s, Colors.orange.shade700)),
+
+            const SizedBox(height: 24),
+
+            // Completed Archive
+            Text('✅ Completed Archive (${completed.length})', style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700, fontSize: 16, color: Colors.green.shade700)),
+            const SizedBox(height: 8),
+            if (completed.isEmpty)
+              _emptyArchiveRow('No completed solicitations')
+            else
+              ...completed.map((s) => _archiveItem(s, Colors.green.shade700)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyArchiveRow(String text) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(text, style: GoogleFonts.poppins(color: Colors.grey.shade500)),
+      ),
+    );
+  }
+
+  Widget _archiveItem(Solicitation s, Color accentColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: accentColor, width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(s.organizationOrPerson, style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF1C2833))),
+              ),
+              if (s.amountGiven != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(s.amountGiven!, style: GoogleFonts.poppins(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(s.purpose, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade400),
+              const SizedBox(width: 4),
+              Text(s.targetDate.isNotEmpty ? s.targetDate : 'No date', style: GoogleFonts.poppins(
+                fontSize: 11, color: Colors.grey.shade500)),
+              if (s.contactPerson.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Icon(Icons.person, size: 12, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(s.contactPerson, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade500)),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

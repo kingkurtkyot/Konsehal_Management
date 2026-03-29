@@ -1,0 +1,1365 @@
+import 'dart:io';
+import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
+
+import '../services/gemini_service.dart';
+import '../services/storage_service.dart';
+import '../models/scheduled_post.dart';
+// Note: we'll just schedule a simple generic notification or let the user check the calendar.
+
+class ContentPostingScreen extends StatefulWidget {
+  const ContentPostingScreen({super.key});
+
+  @override
+  State<ContentPostingScreen> createState() => _ContentPostingScreenState();
+}
+
+class _ContentPostingScreenState extends State<ContentPostingScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final GlobalKey _cardKey = GlobalKey();
+
+  String _selectedType = 'did_you_know';
+  String _generatedTitle = '';
+  String _generatedContent = '';
+  String _monthTheme = '';
+  bool _isGenerating = false;
+  bool _isSaving = false;
+  int _designVariant = 0; // Rotates between design variants
+
+  // Calendar
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  List<ScheduledPost> _scheduledPosts = [];
+
+  // Month theme colors
+  Color _themeColor = const Color(0xFF1B5E20);
+  Color _themeColorLight = const Color(0xFF2E86C1);
+  IconData _themeIcon = Icons.info_outline;
+
+  final _postTypes = const {
+    'did_you_know': {'label': 'Did You Know?', 'icon': Icons.lightbulb_outline, 'emoji': '💡'},
+    'bible_verse': {'label': 'Bible Verse', 'icon': Icons.menu_book_outlined, 'emoji': '📖'},
+    'inspirational': {'label': 'Inspirational Quote', 'icon': Icons.format_quote, 'emoji': '✨'},
+  };
+
+  static const _monthObservances = {
+    1: ['National Blood Donors Month', 'Poverty Awareness Month'],
+    2: ['National Arts Month', 'Heart Month', 'Valentine\'s Month'],
+    3: ['Fire Prevention Month', 'National Women\'s Month', 'Nutrition Month'],
+    4: ['Earth Month', 'Filipino-American History Month'],
+    5: ['Labor Month', 'Heritage Month', 'Philippine Press Freedom Month'],
+    6: ['Independence Day Month', 'Environment Month', 'Philippine-Spanish Friendship Day'],
+    7: ['Filipino Nutrition Month', 'National Disaster Resilience Month'],
+    8: ['Buwan ng Wika (Language Month)', 'Quality Month'],
+    9: ['National Peace Consciousness Month', 'Childhood Cancer Awareness Month'],
+    10: ['Filipino Mental Health Month', 'Breast Cancer Awareness Month', 'Teachers Month'],
+    11: ['National Children\'s Month', 'Youth Month', 'Cooperative Month'],
+    12: ['Human Rights Month', 'Rizal Month', 'Christmas Season'],
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _selectedDay = _focusedDay;
+    _setMonthTheme();
+    _loadScheduledPosts();
+  }
+
+  int get _targetMonth {
+    final m = DateTime.now().month;
+    return m == 12 ? 1 : m + 1;
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _setMonthTheme() {
+    final month = _targetMonth;
+    final observances = _monthObservances[month] ?? [];
+    _monthTheme = observances.isNotEmpty ? observances.first : '';
+
+    // Use Green for everything except minor variations
+    _themeColor = const Color(0xFF1B5E20);
+    _themeColorLight = const Color(0xFF388E3C);
+    
+    switch (month) {
+      case 1: _themeIcon = Icons.bloodtype; break;
+      case 2: _themeIcon = Icons.palette; break;
+      case 3: _themeIcon = Icons.local_fire_department; break;
+      case 4: _themeIcon = Icons.eco; break;
+      case 5: _themeIcon = Icons.construction; break;
+      case 6: _themeIcon = Icons.flag; break;
+      case 7: _themeIcon = Icons.restaurant; break;
+      case 8: _themeIcon = Icons.translate; break;
+      case 9: _themeIcon = Icons.handshake; break;
+      case 10: _themeIcon = Icons.psychology; break;
+      case 11: _themeIcon = Icons.child_care; break;
+      case 12: _themeIcon = Icons.card_giftcard; break;
+      default: _themeIcon = Icons.info_outline; break;
+    }
+  }
+
+  Future<void> _loadScheduledPosts() async {
+    final posts = await StorageService.loadScheduledPosts();
+    if (!mounted) return;
+    setState(() {
+      _scheduledPosts = posts;
+    });
+  }
+
+  List<ScheduledPost> _getEventsForDay(DateTime day) {
+    return _scheduledPosts.where((p) => isSameDay(p.scheduledDate, day)).toList();
+  }
+
+  Future<void> _generateContent() async {
+    setState(() => _isGenerating = true);
+    try {
+      final month = _targetMonth;
+      final observances = _monthObservances[month] ?? [];
+      final monthName = DateFormat('MMMM').format(DateTime(2000, month));
+      final observanceList = observances.join(', ');
+
+      String prompt;
+      switch (_selectedType) {
+        case 'did_you_know':
+          prompt = '''
+Generate a "Did You Know?" fact post for social media. 
+Current month: $monthName
+Monthly observances in the Philippines: $observanceList
+
+Respond in JSON format:
+{ "title": "Alam mo ba?", "monthTheme": "the observance", "content": "the fact content — 2-3 sentences" }
+''';
+          break;
+        case 'bible_verse':
+          prompt = '''
+Generate a Bible verse post for social media.
+Current month: $monthName
+Monthly observances in the Philippines: $observanceList
+
+Respond in JSON format:
+{ "title": "Bible Verse", "monthTheme": "the observance", "content": "\$verse\n\n\$reflection" }
+''';
+          break;
+        default:
+          prompt = '''
+Generate an inspirational quote post for social media.
+Current month: $monthName
+Monthly observances in the Philippines: $observanceList
+
+Respond in JSON format:
+{ "title": "Inspirational Quote", "monthTheme": "the observance", "content": "\$quote\n\n- \$author" }
+''';
+      }
+
+      final response = await GeminiService.generateContentPost(prompt);
+      if (!mounted) return;
+      
+      setState(() {
+        _generatedTitle = response['title'] ?? 'Title';
+        _generatedContent = response['content'] ?? 'Generated text';
+        _monthTheme = response['monthTheme'] ?? _monthTheme;
+        _designVariant = Random().nextInt(3); // 0, 1, or 2
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  Future<void> _scheduleAndSavePost() async {
+    if (_generatedContent.isEmpty) return;
+    
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select Date to Schedule Post',
+    );
+    
+    if (selectedDate == null) return;
+    
+    setState(() => _isSaving = true);
+
+    try {
+      final bytes = await _captureCard();
+      if (bytes == null) throw Exception('Could not capture image');
+
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'post_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      
+      // Save directly to the phone's gallery as well
+      await Gal.putImage(file.path);
+
+      // Save to App Storage
+      final appDir = await getApplicationDocumentsDirectory();
+      final galleryDir = Directory('${appDir.path}/konsi_gallery');
+      if (!await galleryDir.exists()) await galleryDir.create(recursive: true);
+      
+      final galleryFile = File('${galleryDir.path}/$fileName');
+      await galleryFile.writeAsBytes(bytes);
+      
+      final newPost = ScheduledPost(
+        id: 'sp_${DateTime.now().millisecondsSinceEpoch}',
+        imagePath: galleryFile.path,
+        scheduledDate: selectedDate,
+      );
+      
+      await StorageService.addScheduledPost(newPost);
+      await _loadScheduledPosts();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ Scheduled for ${DateFormat("MMM d, yyyy").format(selectedDate)}'), backgroundColor: Colors.green),
+        );
+        // Switch to the calendar tab automatically
+        _tabController.animateTo(1);
+        setState(() => _selectedDay = selectedDate);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _sharePost() async {
+    if (_generatedContent.isEmpty) return;
+    try {
+      setState(() => _isSaving = true);
+      final bytes = await _captureCard();
+      if (bytes == null) throw Exception('Could not capture image');
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], text: '#SerbisyongTapatparasaLahat\n\n$_monthTheme');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<List<int>?> _captureCard() async {
+    try {
+      final boundary = _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+      final image = await boundary.toImage(pixelRatio: 4.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
+      appBar: AppBar(
+        title: const Text('Content Posting'),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Create', icon: Icon(Icons.auto_awesome, size: 20)),
+            Tab(text: 'Schedule View', icon: Icon(Icons.calendar_month, size: 20)),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildCreateTab(),
+          _buildCalendarTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreateTab() {
+    final month = _targetMonth;
+    final monthName = DateFormat('MMMM').format(DateTime(2000, month));
+    final observances = _monthObservances[month] ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Theme Banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [_themeColor, _themeColorLight]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Icon(_themeIcon, color: Colors.white, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$monthName Celebrations', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+                      Text(observances.join(' • '), style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          Text('Post Type', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 10),
+          Row(
+            children: _postTypes.entries.map((entry) {
+              final isSelected = _selectedType == entry.key;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedType = entry.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected ? _themeColor : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isSelected ? _themeColor : Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(entry.value['emoji'] as String, style: const TextStyle(fontSize: 22)),
+                        const SizedBox(height: 4),
+                        Text(
+                          (entry.value['label'] as String).split(' ').first,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10, fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isGenerating ? null : _generateContent,
+              icon: _isGenerating
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.auto_awesome),
+              label: Text(_isGenerating ? 'Creating...' : 'Generate with AI', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _themeColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          if (_generatedContent.isNotEmpty) ...[
+            Text('Preview', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 10),
+            
+            RepaintBoundary(
+              key: _cardKey,
+              child: _buildPostCard(),
+            ),
+            
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _scheduleAndSavePost,
+                    icon: _isSaving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.event_available),
+                    label: Text(_isSaving ? '...' : 'Schedule', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _sharePost,
+                    icon: const Icon(Icons.share),
+                    label: Text('Share', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6C3483),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MASTERPIECE CARD BUILDERS — 3 variants per category = 9 unique designs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPostCard() {
+    switch (_selectedType) {
+      case 'did_you_know':
+        return _buildDidYouKnowCard();
+      case 'inspirational':
+        return _buildQuoteCard();
+      case 'bible_verse':
+        return _buildBibleVerseCard();
+      default:
+        return const SizedBox();
+    }
+  }
+
+  // Helper to get first sentence
+  String get _firstSentence {
+    final idx = _generatedContent.indexOf('.');
+    return idx >= 0 ? _generatedContent.substring(0, idx + 1) : _generatedContent;
+  }
+  String get _restContent {
+    final idx = _generatedContent.indexOf('.');
+    return idx >= 0 ? _generatedContent.substring(idx + 1).trim() : '';
+  }
+  String get _quoteText {
+    final parts = _generatedContent.split('\n\n');
+    return parts.first.replaceAll('"', '').replaceAll('"', '').replaceAll('"', '').trim();
+  }
+  String get _quoteAuthor {
+    final parts = _generatedContent.split('\n\n');
+    return parts.length > 1 ? parts.last.trim() : '- Konsehal Matthew Lagaya';
+  }
+
+  // ─── DID YOU KNOW ─────────────────────────────────────────────────────────
+
+  Widget _buildDidYouKnowCard() {
+    switch (_designVariant) {
+      case 0: return _dykVariantTornPaper();
+      case 1: return _dykVariantCleanModern();
+      case 2: return _dykVariantBoldSplit();
+      default: return _dykVariantTornPaper();
+    }
+  }
+
+  /// Variant 0 — Torn paper, question marks, red underline accent
+  Widget _dykVariantTornPaper() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Cream paper base
+            Container(color: const Color(0xFFF5F1E8)),
+            // Left dark green strip (torn edge effect)
+            Positioned(left: 0, top: 0, bottom: 0, width: 28,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1B3C2A), Color(0xFF2A5C40)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
+            ),
+            // Scattered question marks
+            Positioned(left: 2, top: 30,
+              child: Transform.rotate(angle: 0.15,
+                child: Text('?', style: GoogleFonts.caveat(fontSize: 90, color: const Color(0xFF1B5E20).withValues(alpha: 0.12), fontWeight: FontWeight.w900)))),
+            Positioned(left: -8, bottom: 140,
+              child: Transform.rotate(angle: -0.25,
+                child: Text('?', style: GoogleFonts.caveat(fontSize: 150, color: const Color(0xFF1B3C2A).withValues(alpha: 0.9), fontWeight: FontWeight.w900)))),
+            Positioned(left: 8, bottom: 25,
+              child: Transform.rotate(angle: 0.35,
+                child: Text('?', style: GoogleFonts.caveat(fontSize: 55, color: const Color(0xFF1B3C2A).withValues(alpha: 0.7), fontWeight: FontWeight.w900)))),
+            // Paper texture dots
+            Positioned.fill(child: CustomPaint(painter: _PaperTexturePainter())),
+            // Content
+            Padding(
+              padding: const EdgeInsets.only(left: 56, right: 28, top: 32, bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _generatedTitle.isNotEmpty ? _generatedTitle : 'Alam mo ba?',
+                    style: GoogleFonts.caveat(fontSize: 46, fontWeight: FontWeight.w700, color: const Color(0xFF1B5E20), height: 1.0),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFD32F2F), width: 2.5))),
+                    child: Text(_firstSentence,
+                      style: GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFF2C2C2C), height: 1.35)),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Text(_restContent,
+                      style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF3A3A3A), height: 1.45),
+                      textAlign: TextAlign.justify),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFooterBranding(dark: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Variant 1 — Clean modern card with accent bar and gradient header
+  Widget _dykVariantCleanModern() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            Container(color: const Color(0xFFF9FAF7)),
+            // Top gradient bar
+            Positioned(left: 0, right: 0, top: 0, height: 6,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF4CAF50), Color(0xFF81C784)]),
+                ),
+              ),
+            ),
+            // Subtle geometric pattern
+            Positioned.fill(child: CustomPaint(painter: _DiamondPatternPainter())),
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title with lightbulb accent
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B5E20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.lightbulb, color: Color(0xFFFFD54F), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          _generatedTitle.isNotEmpty ? _generatedTitle : 'Alam mo ba?',
+                          style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w800, color: const Color(0xFF1B5E20), height: 1.1),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Green accent divider
+                  Row(children: [
+                    Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF1B5E20), borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 6),
+                    Container(width: 12, height: 4, decoration: BoxDecoration(color: const Color(0xFF4CAF50), borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 6),
+                    Container(width: 6, height: 4, decoration: BoxDecoration(color: const Color(0xFF81C784), borderRadius: BorderRadius.circular(2))),
+                  ]),
+                  const SizedBox(height: 16),
+                  // Content in styled container
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF1B5E20).withValues(alpha: 0.15)),
+                        boxShadow: [BoxShadow(color: const Color(0xFF1B5E20).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                      ),
+                      child: Text(_generatedContent,
+                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF2C3E50), height: 1.55),
+                        textAlign: TextAlign.justify),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFooterBranding(dark: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Variant 2 — Bold green split panel
+  Widget _dykVariantBoldSplit() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Bottom half cream
+            Column(children: [
+              Expanded(child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+                  ),
+                ),
+              )),
+              Expanded(child: Container(color: const Color(0xFFF5F1E8))),
+            ]),
+            // Large question mark watermark
+            Positioned(right: -20, top: -20,
+              child: Text('?', style: GoogleFonts.poppins(fontSize: 220, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: 0.07)))),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title on dark background
+                  Text(
+                    _generatedTitle.isNotEmpty ? _generatedTitle : 'Alam mo ba?',
+                    style: GoogleFonts.caveat(fontSize: 44, fontWeight: FontWeight.w700, color: Colors.white, height: 1.0),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(width: 60, height: 3, decoration: BoxDecoration(color: const Color(0xFFFFD54F), borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 8),
+                  Text(_monthTheme,
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.8), fontStyle: FontStyle.italic)),
+                  const Spacer(),
+                  // Content on light background
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8))],
+                    ),
+                    child: Text(_generatedContent,
+                      style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF2C3E50), height: 1.5),
+                      textAlign: TextAlign.justify,
+                      maxLines: 8, overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFooterBranding(dark: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── INSPIRATIONAL QUOTES ─────────────────────────────────────────────────
+
+  Widget _buildQuoteCard() {
+    switch (_designVariant) {
+      case 0: return _quoteVariantNeonBlock();
+      case 1: return _quoteVariantElegantSerif();
+      case 2: return _quoteVariantBoldDiagonal();
+      default: return _quoteVariantNeonBlock();
+    }
+  }
+
+  /// Variant 0 — Neon green text on dark green block (inspired by rival but better)
+  Widget _quoteVariantNeonBlock() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // White base with faint grid
+            Container(color: const Color(0xFFFAFAFA)),
+            Positioned.fill(child: CustomPaint(painter: _GridPainter())),
+            // Seal top-right with page curl shadow
+            Positioned(top: 0, right: 0,
+              child: Container(
+                width: 85, height: 85,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(42)),
+                  boxShadow: [BoxShadow(color: const Color(0xFF1B5E20).withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(-3, 3))],
+                ),
+                padding: const EdgeInsets.only(top: 10, right: 10),
+                alignment: Alignment.topRight,
+                child: _buildSealImage(38),
+              ),
+            ),
+            // Large opening quote
+            Positioned(top: 18, left: 28,
+              child: Text('\u201C\u201C', style: GoogleFonts.playfairDisplay(fontSize: 100, fontWeight: FontWeight.w900, height: 0.6, color: const Color(0xFF1B5E20)))),
+            // Quote content
+            Positioned(left: 26, right: 26, top: 150, bottom: 50,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Multi-line neon block — each line in its own green container
+                  ..._buildNeonLines(_quoteText),
+                  const SizedBox(height: 20),
+                  Text(_quoteAuthor,
+                    style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF1B5E20))),
+                  const Spacer(),
+                  _buildFooterBranding(dark: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Builds individual neon green text lines with dark green background
+  List<Widget> _buildNeonLines(String text) {
+    // Split into ~4-5 word chunks for a visually stacked effect
+    final words = text.split(' ');
+    final lines = <String>[];
+    var current = '';
+    for (final word in words) {
+      if (current.isEmpty) {
+        current = word;
+      } else if ('$current $word'.length < 28) {
+        current = '$current $word';
+      } else {
+        lines.add(current);
+        current = word;
+      }
+    }
+    if (current.isNotEmpty) lines.add(current);
+
+    return lines.map((line) => Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        color: const Color(0xFF14432A),
+        child: Text(
+          '\u201C$line\u201D',
+          style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF00E676), height: 1.2),
+        ),
+      ),
+    )).toList();
+  }
+
+  /// Variant 1 — Elegant serif with centered layout and gold accent
+  Widget _quoteVariantElegantSerif() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Soft green gradient
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                  colors: [Color(0xFFF1F8E9), Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
+                ),
+              ),
+            ),
+            // Decorative corner flourishes
+            Positioned(top: 16, left: 16,
+              child: Container(width: 50, height: 50,
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: const Color(0xFF1B5E20).withValues(alpha: 0.3), width: 2.5), left: BorderSide(color: const Color(0xFF1B5E20).withValues(alpha: 0.3), width: 2.5))))),
+            Positioned(bottom: 16, right: 16,
+              child: Container(width: 50, height: 50,
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: const Color(0xFF1B5E20).withValues(alpha: 0.3), width: 2.5), right: BorderSide(color: const Color(0xFF1B5E20).withValues(alpha: 0.3), width: 2.5))))),
+            // Center content
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 50),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Decorative opening quote
+                    Text('\u201C', style: GoogleFonts.playfairDisplay(fontSize: 80, height: 0.6, fontWeight: FontWeight.w700, color: const Color(0xFF1B5E20).withValues(alpha: 0.25))),
+                    const SizedBox(height: 8),
+                    Text(_quoteText,
+                      style: GoogleFonts.playfairDisplay(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF1B5E20), height: 1.4, fontStyle: FontStyle.italic),
+                      textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    // Gold divider
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(width: 30, height: 2, color: const Color(0xFFBFA24E)),
+                      const SizedBox(width: 8),
+                      Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFBFA24E), width: 1.5))),
+                      const SizedBox(width: 8),
+                      Container(width: 30, height: 2, color: const Color(0xFFBFA24E)),
+                    ]),
+                    const SizedBox(height: 14),
+                    Text(_quoteAuthor,
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF2E7D32), letterSpacing: 1.5),
+                      textAlign: TextAlign.center),
+                    const Spacer(),
+                    _buildSealImage(36),
+                    const SizedBox(height: 6),
+                    Text('Konsehal Matthew Lagaya', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF1B5E20).withValues(alpha: 0.6))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Variant 2 — Bold diagonal split with large typography
+  Widget _quoteVariantBoldDiagonal() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // White base
+            Container(color: Colors.white),
+            // Diagonal green block
+            Positioned.fill(
+              child: CustomPaint(painter: _DiagonalPainter()),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Large bold quote on white area
+                  Text('\u201C', style: GoogleFonts.playfairDisplay(fontSize: 90, height: 0.5, fontWeight: FontWeight.w900, color: const Color(0xFF1B5E20))),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: Center(
+                      child: Text(_quoteText,
+                        style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: const Color(0xFF1B5E20), height: 1.35),
+                        textAlign: TextAlign.left),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(width: 40, height: 3, color: const Color(0xFF4CAF50)),
+                      const SizedBox(width: 12),
+                      Text(_quoteAuthor,
+                        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFooterBranding(dark: false),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── BIBLE VERSE ──────────────────────────────────────────────────────────
+
+  Widget _buildBibleVerseCard() {
+    switch (_designVariant) {
+      case 0: return _bibleVariantDarkGradient();
+      case 1: return _bibleVariantParchment();
+      case 2: return _bibleVariantGeometric();
+      default: return _bibleVariantDarkGradient();
+    }
+  }
+
+  /// Variant 0 — Classic dark green gradient with large faded quotes & seal tab
+  Widget _bibleVariantDarkGradient() {
+    return SizedBox(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Deep green gradient with bokeh-like circles
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF2E4C3B), Color(0xFF1A3C2A), Color(0xFF0F2318)],
+                ),
+              ),
+            ),
+            // Bokeh circles
+            Positioned.fill(child: CustomPaint(painter: _BokehPainter())),
+            // Top-center seal badge
+            Align(alignment: Alignment.topCenter,
+              child: Container(
+                margin: const EdgeInsets.only(top: 0),
+                width: 80, height: 96,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+                ),
+                child: Center(child: Padding(padding: const EdgeInsets.only(top: 10), child: _buildSealImage(44))),
+              ),
+            ),
+            // Quote marks with horizontal lines
+            Positioned(left: 30, top: 130,
+              child: Row(children: [
+                Container(width: 30, height: 1.5, color: Colors.white.withValues(alpha: 0.3)),
+                const SizedBox(width: 8),
+                Text('\u201C', style: GoogleFonts.playfairDisplay(fontSize: 60, height: 0.5, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: 0.5))),
+              ])),
+            Positioned(right: 30, bottom: 45,
+              child: Row(children: [
+                Text('\u201D', style: GoogleFonts.playfairDisplay(fontSize: 60, height: 0.5, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: 0.5))),
+                const SizedBox(width: 8),
+                Container(width: 30, height: 1.5, color: Colors.white.withValues(alpha: 0.3)),
+              ])),
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 108),
+                  Text(
+                    _generatedTitle.toUpperCase(),
+                    style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2.0),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    _generatedContent.replaceAll('"', '').replaceAll('"', '').replaceAll('"', ''),
+                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white.withValues(alpha: 0.88), height: 1.65),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Variant 1 — Light parchment scroll with green accents
+  Widget _bibleVariantParchment() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Warm parchment
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                  colors: [Color(0xFFF5F0E1), Color(0xFFEDE8D8), Color(0xFFE8E0CC)],
+                ),
+              ),
+            ),
+            // Vignette edges
+            Positioned.fill(child: CustomPaint(painter: _VignettePainter())),
+            // Top green bar with seal
+            Positioned(left: 0, right: 0, top: 0,
+              child: Container(
+                height: 64,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)]),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildSealImage(28),
+                      const SizedBox(width: 10),
+                      Text('KONSEHAL MATTHEW LAGAYA', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1.5)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(36, 80, 36, 30),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Cross/book icon
+                  Icon(Icons.auto_stories, size: 36, color: const Color(0xFF1B5E20).withValues(alpha: 0.3)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _generatedTitle,
+                    style: GoogleFonts.playfairDisplay(fontSize: 26, fontWeight: FontWeight.w800, color: const Color(0xFF1B5E20), height: 1.2),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  // Ornamental divider
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(width: 36, height: 1.5, color: const Color(0xFF1B5E20).withValues(alpha: 0.4)),
+                    const SizedBox(width: 10),
+                    Icon(Icons.spa, size: 16, color: const Color(0xFF1B5E20).withValues(alpha: 0.4)),
+                    const SizedBox(width: 10),
+                    Container(width: 36, height: 1.5, color: const Color(0xFF1B5E20).withValues(alpha: 0.4)),
+                  ]),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: Text(
+                      _generatedContent.replaceAll('"', ''),
+                      style: GoogleFonts.lora(fontSize: 15, fontWeight: FontWeight.w500, color: const Color(0xFF3E2C1C), height: 1.65, fontStyle: FontStyle.italic),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Text('#SerbisyongTapatparasaLahat', style: GoogleFonts.poppins(fontSize: 9, fontStyle: FontStyle.italic, color: const Color(0xFF1B5E20).withValues(alpha: 0.5))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Variant 2 — Geometric split with bold verse reference
+  Widget _bibleVariantGeometric() {
+    return Container(
+      width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            // Split: left green, right white
+            Row(children: [
+              Expanded(flex: 2, child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                    colors: [Color(0xFF1B5E20), Color(0xFF0D3B15)],
+                  ),
+                ),
+              )),
+              Expanded(flex: 3, child: Container(color: const Color(0xFFF9FAF7))),
+            ]),
+            // Cross pattern on green side
+            Positioned(left: 10, top: 50, child: Icon(Icons.add, size: 20, color: Colors.white.withValues(alpha: 0.08))),
+            Positioned(left: 30, top: 120, child: Icon(Icons.add, size: 14, color: Colors.white.withValues(alpha: 0.06))),
+            Positioned(left: 15, bottom: 80, child: Icon(Icons.add, size: 18, color: Colors.white.withValues(alpha: 0.07))),
+            // Large verse reference on green side
+            Positioned(left: 20, top: 0, bottom: 0,
+              child: RotatedBox(
+                quarterTurns: 3,
+                child: Center(
+                  child: Text(
+                    _generatedTitle.toUpperCase(),
+                    style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: 0.2), letterSpacing: 4),
+                  ),
+                ),
+              ),
+            ),
+            // Content on white side
+            Positioned(left: 100, right: 24, top: 30, bottom: 24,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSealImage(36),
+                  const SizedBox(height: 14),
+                  Text(
+                    _generatedTitle,
+                    style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1B5E20), height: 1.1),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(width: 40, height: 3, decoration: BoxDecoration(color: const Color(0xFF4CAF50), borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: Text(
+                      _generatedContent.replaceAll('"', ''),
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF2C3E50), height: 1.55),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Konsehal Matthew Lagaya', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF1B5E20))),
+                  Text('#SerbisyongTapatparasaLahat', style: GoogleFonts.poppins(fontSize: 8, fontStyle: FontStyle.italic, color: Colors.grey.shade400)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── SHARED HELPERS ───────────────────────────────────────────────────────
+
+  Widget _buildSealImage(double size) {
+    return ClipOval(
+      child: Image.asset('assets/seal.png', width: size, height: size, fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: size, height: size,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF1B5E20).withValues(alpha: 0.1)),
+          child: Center(child: Text('🇵🇭', style: TextStyle(fontSize: size * 0.5))),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterBranding({required bool dark}) {
+    final color = dark ? const Color(0xFF1B5E20) : Colors.white;
+    return Row(
+      children: [
+        Icon(Icons.facebook, color: color, size: 22),
+        const SizedBox(width: 8),
+        Text('Konsehal Matthew Lagaya',
+          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildCalendarTab() {
+    final dailyEvents = _getEventsForDay(_selectedDay!);
+
+    return Column(
+      children: [
+        TableCalendar<ScheduledPost>(
+          firstDay: DateTime.now().subtract(const Duration(days: 365)),
+          lastDay: DateTime.now().add(const Duration(days: 365)),
+          focusedDay: _focusedDay,
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          calendarFormat: CalendarFormat.month,
+          eventLoader: _getEventsForDay,
+          startingDayOfWeek: StartingDayOfWeek.monday,
+          headerStyle: HeaderStyle(
+            formatButtonVisible: false,
+            titleCentered: true,
+            titleTextStyle: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          calendarStyle: CalendarStyle(
+            selectedDecoration: const BoxDecoration(color: Color(0xFF1B5E20), shape: BoxShape.circle),
+            todayDecoration: BoxDecoration(color: const Color(0xFF1B5E20).withValues(alpha: 0.4), shape: BoxShape.circle),
+            markerDecoration: const BoxDecoration(color: Color(0xFFE67E22), shape: BoxShape.circle),
+          ),
+          onDaySelected: (selectedDay, focusedDay) {
+            setState(() {
+              _selectedDay = selectedDay;
+              _focusedDay = focusedDay;
+            });
+          },
+        ),
+        const Divider(),
+        Expanded(
+          child: dailyEvents.isEmpty
+              ? Center(
+                  child: Text(
+                    'No posts scheduled for this date.',
+                    style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: dailyEvents.length,
+                  itemBuilder: (context, index) {
+                    final post = dailyEvents[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Column(
+                        children: [
+                          Image.file(File(post.imagePath), fit: BoxFit.cover),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            color: Colors.white,
+                            child: Row(
+                              children: [
+                                Text(
+                                  DateFormat('EEEE, MMM d').format(post.scheduledDate),
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF1B5E20)),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(Icons.share, color: Color(0xFF6C3483)),
+                                  onPressed: () {
+                                    Share.shareXFiles([XFile(post.imagePath)], text: '#SerbisyongTapatparasaLahat');
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () async {
+                                    await StorageService.deleteScheduledPost(post.id);
+                                    try { await File(post.imagePath).delete(); } catch (_) {}
+                                    await _loadScheduledPosts();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CUSTOM PAINTERS — Stunning backgrounds and textures
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Faint grid paper background
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFFE0E0E0)..strokeWidth = 0.5;
+    const space = 28.0;
+    for (double i = 0; i < size.width; i += space) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += space) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Subtle paper texture dots
+class _PaperTexturePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = Random(42); // Fixed seed for consistent texture
+    final paint = Paint()..color = const Color(0xFF8B7355).withValues(alpha: 0.04);
+    for (int i = 0; i < 200; i++) {
+      canvas.drawCircle(
+        Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height),
+        rng.nextDouble() * 2 + 0.5,
+        paint,
+      );
+    }
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Diamond/rhombus pattern for modern DYK variant
+class _DiamondPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1B5E20).withValues(alpha: 0.025)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    const spacing = 40.0;
+    for (double x = 0; x < size.width + spacing; x += spacing) {
+      for (double y = 0; y < size.height + spacing; y += spacing) {
+        final path = Path()
+          ..moveTo(x, y - 10)
+          ..lineTo(x + 10, y)
+          ..lineTo(x, y + 10)
+          ..lineTo(x - 10, y)
+          ..close();
+        canvas.drawPath(path, paint);
+      }
+    }
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Diagonal green block for quote variant
+class _DiagonalPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFF1B5E20);
+    final path = Path()
+      ..moveTo(0, size.height * 0.7)
+      ..lineTo(size.width, size.height * 0.45)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Bokeh circles for Bible dark gradient
+class _BokehPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = Random(123);
+    for (int i = 0; i < 12; i++) {
+      final x = rng.nextDouble() * size.width;
+      final y = rng.nextDouble() * size.height;
+      final r = rng.nextDouble() * 40 + 15;
+      final paint = Paint()
+        ..color = Colors.white.withValues(alpha: rng.nextDouble() * 0.04 + 0.01)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(x, y), r, paint);
+    }
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Soft vignette edges for parchment Bible variant
+class _VignettePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final paint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 0.85,
+        colors: [Colors.transparent, const Color(0xFF8B7355).withValues(alpha: 0.08)],
+      ).createShader(rect);
+    canvas.drawRect(rect, paint);
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
